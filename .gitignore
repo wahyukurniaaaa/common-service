@@ -1,0 +1,13 @@
+# Environments
+.env
+
+# Backups and Large Files
+backups/
+*.zip
+*.bak
+*.sql
+.docker_exit_*
+
+# OS files
+.DS_Store
+Thumbs.db

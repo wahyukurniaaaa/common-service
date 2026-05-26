@@ -1,0 +1,86 @@
+services:
+  mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: common-mssql
+    restart: unless-stopped
+    entrypoint: /entrypoint-custom.sh
+    user: "0:0"
+    environment:
+      SA_PASSWORD: ${MSSQL_PASSWORD:-${MSSQL_SA_PASSWORD}}
+      ACCEPT_EULA: ${ACCEPT_EULA}
+      MSSQL_PID: ${MSSQL_PID}
+      DB_NAME: ${MSSQL_DB:-${DB_NAME}}
+      DB_BAK_FILE: ${DB_BAK_FILE}
+      # Source Database for auto-pull
+      MSSQL_SOURCE_HOST: ${MSSQL_SOURCE_HOST:-none}
+      MSSQL_SOURCE_PORT: ${MSSQL_SOURCE_PORT:-1433}
+      MSSQL_SOURCE_DB: ${MSSQL_SOURCE_DB:-smartoffice_source_db}
+      MSSQL_SOURCE_USER: ${MSSQL_SOURCE_USER:-sa}
+      MSSQL_SOURCE_PASS: ${MSSQL_SOURCE_PASS:-SourcePassword123!}
+    ports:
+      - "${MSSQL_PORT:-1433}:1433"
+    volumes:
+      # Project root mount (read-only) to access backup files
+      - ./:/var/opt/mssql/backup/:ro
+      # Persistent data volume (named volume for WSL2 performance/safety)
+      - mssql_data:/var/opt/mssql/data
+      # Entrypoint & restore scripts
+      - ./docker/mssql/entrypoint.sh:/entrypoint-custom.sh:ro
+      - ./docker/mssql/restore.sh:/restore.sh:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$$SA_PASSWORD\" -Q \"SELECT 1\" -No -C || exit 1" ]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    # Lightweight: limit resource usage
+    deploy:
+      resources:
+        limits:
+          memory: 1.5G
+          cpus: "1.0"
+
+  postgres:
+    image: postgres:18-alpine
+    container_name: common-postgres
+    restart: unless-stopped
+    entrypoint: /entrypoint-custom.sh
+    environment:
+      POSTGRES_USER: ${PG_USER:-postgres}
+      POSTGRES_PASSWORD: ${PG_PASSWORD:-postgres}
+      POSTGRES_DB: ${PG_DB:-smartoffice}
+      # Source Database for auto-pull
+      PG_SOURCE_HOST: ${PG_SOURCE_HOST:-host.docker.internal}
+      PG_SOURCE_PORT: ${PG_SOURCE_PORT:-55321}
+      PG_SOURCE_DB: ${PG_SOURCE_DB:-phiro_multi_dev}
+      PG_SOURCE_USER: ${PG_SOURCE_USER:-phirouser}
+      PG_SOURCE_PASS: ${PG_SOURCE_PASS:-PH1r0@ph1raka}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${PG_PORT:-5432}:5432"
+    volumes:
+
+      # Persistent data volume (named volume for WSL2 performance/safety)
+      - postgres_data:/var/lib/postgresql/data
+      # Entrypoint & restore scripts
+      - ./docker/postgres/entrypoint.sh:/entrypoint-custom.sh:ro
+      - ./docker/postgres/restore.sh:/restore.sh:ro
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${PG_USER:-postgres} -d ${PG_DB:-smartoffice}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    # Lightweight: limit resource usage
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+
+volumes:
+  mssql_data:
+  postgres_data:
+
+
