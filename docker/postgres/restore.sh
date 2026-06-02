@@ -2,6 +2,7 @@
 # restore.sh - Restore PostgreSQL database from .psql dump if not already restored
 
 set -e
+set -o pipefail
 
 # ──────────────────────────────────────────────
 # Step 0: Direct Pull Logic (Integrated from sync_posgres.ps1)

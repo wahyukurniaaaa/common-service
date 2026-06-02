@@ -18,8 +18,8 @@ for i in {1..30}; do
     sleep 3
 done
 
-# Run restore script
-/bin/bash /restore.sh
+# Run restore script (catch failure to prevent infinite container bootloop)
+/bin/bash /restore.sh || echo "⚠️ WARNING: Database restore failed! Check the error logs above."
 
 # Keep SQL Server running in foreground
 wait $SQLPID

@@ -20,8 +20,8 @@ while [ $i -le 200 ]; do
     i=$((i + 1))
 done
 
-# Run restore script
-/bin/sh /restore.sh
+# Run restore script (catch failure to prevent infinite container bootloop)
+/bin/sh /restore.sh || echo "⚠️ WARNING: Database pull/restore failed! Check the error logs above."
 
 # Keep PostgreSQL running in foreground
 wait $PG_PID
