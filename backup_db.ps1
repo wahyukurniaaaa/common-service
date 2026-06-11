@@ -8,11 +8,51 @@
     Acuannya dari sync_posgres.ps1.
 #>
 
+# Fungsi untuk membaca file .env
+function Load-Env {
+    param(
+        [string]$Path
+    )
+    if (Test-Path $Path) {
+        Get-Content $Path | ForEach-Object {
+            $line = $_.Trim()
+            # Abaikan komentar dan baris kosong
+            if ($line -and -not $line.StartsWith("#") -and $line -like "*=*") {
+                $parts = $line.Split('=', 2)
+                $key = $parts[0].Trim()
+                $value = $parts[1].Trim()
+                # Hapus tanda kutip jika ada
+                if (($value.StartsWith('"') -and $value.EndsWith('"')) -or ($value.StartsWith("'") -and $value.EndsWith("'"))) {
+                    $value = $value.Substring(1, $value.Length - 2)
+                }
+                [System.Environment]::SetEnvironmentVariable($key, $value)
+            }
+        }
+    }
+}
+
+# Load environment variables dari .env di root script
+$EnvFile = Join-Path $PSScriptRoot ".env"
+Load-Env -Path $EnvFile
+
+# Helper untuk mengambil environment variable dengan fallback
+function Get-Env {
+    param(
+        [string]$Key,
+        [string]$Default
+    )
+    $val = [System.Environment]::GetEnvironmentVariable($Key)
+    if ($null -eq $val -or $val -eq "") {
+        return $Default
+    }
+    return $val
+}
+
 # --- KONFIGURASI SUMBER (SOURCE) ----------------------------------------------
-$SourcePort = "55321"
-$SourceDb   = "phiro_multi_dev"
-$SourceUser = "phirouser"
-$SourcePass = "PH1r0@ph1raka"
+$SourcePort = Get-Env -Key "PG_SOURCE_PORT" -Default "55321"
+$SourceDb   = Get-Env -Key "PG_SOURCE_DB" -Default "phiro_multi_dev"
+$SourceUser = Get-Env -Key "PG_SOURCE_USER" -Default "phirouser"
+$SourcePass = Get-Env -Key "PG_SOURCE_PASS" -Default "PH1r0@ph1raka"
 
 # --- SETUP FILE BACKUP --------------------------------------------------------
 $Timestamp      = Get-Date -Format "yyyyMMdd_HHmmss"
