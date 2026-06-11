@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env pwsh
+#!/usr/bin/env pwsh
 <#
 .SYNOPSIS
     Script untuk sinkronisasi database PostgreSQL: Backup dari Server -> Restore ke Docker.
@@ -218,9 +218,23 @@ $restoreArgs = @(
 $exitCode = Invoke-Docker -Label "Menjalankan psql restore" -DockerArgs $restoreArgs
 
 if ($exitCode -ne 0) {
-    Write-Host "      ⚠️  Restore gagal. Mencoba buat database '$TargetDb' lalu retry..." -ForegroundColor Yellow
+    Write-Host "      [WARN] Restore gagal. Mencoba bersihkan database '$TargetDb' lalu retry..." -ForegroundColor Yellow
 
-    # Coba buat database
+    # Drop database lama jika ada
+    $dropArgs = @(
+        "run", "--rm",
+        "-e", "PGPASSWORD=$TargetPass",
+        "postgres:18-alpine",
+        "psql",
+        "--host=host.docker.internal",
+        "--port=$TargetPort",
+        "--username=$TargetUser",
+        "--dbname=postgres",
+        "-c", "DROP DATABASE IF EXISTS $TargetDb WITH (FORCE);"
+    )
+    Invoke-Docker -Label "Menghapus database lama" -DockerArgs $dropArgs | Out-Null
+
+    # Buat ulang database
     $createArgs = @(
         "run", "--rm",
         "-e", "PGPASSWORD=$TargetPass",
@@ -232,13 +246,13 @@ if ($exitCode -ne 0) {
         "--dbname=postgres",
         "-c", "CREATE DATABASE $TargetDb;"
     )
-    Invoke-Docker -Label "Membuat database" -DockerArgs $createArgs | Out-Null
+    Invoke-Docker -Label "Membuat database baru" -DockerArgs $createArgs | Out-Null
 
     # Retry restore
     $exitCode = Invoke-Docker -Label "Retry psql restore" -DockerArgs $restoreArgs
 
     if ($exitCode -ne 0) {
-        Write-Host "      ❌ Restore gagal setelah retry! (exit code: $exitCode)" -ForegroundColor Red
+        Write-Host "      [FAIL] Restore gagal setelah retry! (exit code: $exitCode)" -ForegroundColor Red
         Cleanup
         exit 1
     }
